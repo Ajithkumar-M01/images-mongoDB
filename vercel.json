@@ -12,6 +12,4 @@
       "src": "/(.*)",
       "dest": "imageServer.js"
     }
-  ],
-  "static": { "uploads": "uploads" }
-}
+  ]}
