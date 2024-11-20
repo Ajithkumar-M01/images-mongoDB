@@ -46,7 +46,7 @@ app.post('/upload', uploadGridFS.single('image'), (req, res) => {
   });
 });
 
-app.get('/uploads/:filename', (req, res) => {
+app.get('/get-image', (req, res) => {
   const bucket = new GridFSBucket(mongoose.connection.db, {
     bucketName: 'uploads',
   });
