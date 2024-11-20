@@ -4,7 +4,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import multer from "multer";
 import { GridFSBucket } from "mongodb";
-import multerGridfsStorage from "multer-gridfs-storage";
+import Grid from "gridfs-stream";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 
@@ -16,46 +16,47 @@ app.use(cors({
   methods: ["GET", "POST"],
 }));
 
-// Define __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const PORT = process.env.PORT || 5003;
 const uri = process.env.MONGODB_URI;
 
-mongoose.connect(uri, { useNewUrlParser: true })
-  .then(() => console.log("Connected to MongoDB"))
-  .catch((err) => console.log(err));
+const conn = mongoose.createConnection(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
-// Create GridFS Storage
-const storage = new multerGridfsStorage({
-  url: uri,
-  options: { useNewUrlParser: true, useUnifiedTopology: true },
-  file: (req, file) => ({
-    filename: Date.now().toString() + '-' + file.originalname,
-    bucketName: 'uploads',
-  }),
+let gfs;
+conn.once('open', () => {
+  gfs = Grid(conn.db, mongoose.mongo);
+  gfs.collection('uploads');
 });
 
-const uploadGridFS = multer({ storage });
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
-app.post('/upload', uploadGridFS.single('image'), (req, res) => {
-  res.status(200).json({
-    message: 'Image uploaded successfully',
-    imageUrl: `/uploads/${req.file.filename}`,
+app.post('/upload', upload.single('image'), (req, res) => {
+  const writestream = gfs.createWriteStream({
+    filename: Date.now().toString() + '-' + req.file.originalname,
+    content_type: req.file.mimetype,
+    metadata: req.file,
+  });
+
+  writestream.write(req.file.buffer);
+  writestream.end();
+
+  writestream.on('close', (file) => {
+    res.status(200).json({ message: 'Image uploaded successfully', imageUrl: `/uploads/${file.filename}` });
   });
 });
 
 app.get('/get-image', (req, res) => {
-  const bucket = new GridFSBucket(mongoose.connection.db, {
-    bucketName: 'uploads',
-  });
+  gfs.files.findOne({ filename: req.params.filename }, (err, file) => {
+    if (!file || file.length === 0) {
+      return res.status(404).json({ message: 'Image not found' });
+    }
 
-  bucket.openDownloadStreamByName(req.params.filename)
-    .pipe(res)
-    .on('error', () => {
-      res.status(404).json({ message: 'Image not found' });
-    });
+    const readstream = gfs.createReadStream(file.filename);
+    readstream.pipe(res);
+  });
 });
 
 app.listen(PORT, () => {
