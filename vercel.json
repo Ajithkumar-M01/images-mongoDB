@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "imageServer.js",
+      "use": "@vercel/node"
+    }
+    
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "imageServer.js"
+    }
+  ],
+  "static": { "uploads": "uploads" }
+}
