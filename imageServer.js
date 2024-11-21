@@ -11,7 +11,7 @@ const app = express();
 app.use(express.json());
 // app.use(cors());
 app.use(cors({
-  origin: ["http://localhost:5173", "https://justice-league-ochre.vercel.app/"],
+  origin: "https://justice-league-ochre.vercel.app/",
   methods: ["GET", "POST"]
 }));
 // Define __dirname for ES modules
